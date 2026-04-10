@@ -4,6 +4,7 @@ import asyncio
 
 from aiogram.types import Update
 from flask import Flask, jsonify, request
+from fastapi import HTTPException
 
 from app.main import (
     _extract_chat_ref,
@@ -25,6 +26,16 @@ flask_app = Flask(__name__)
 
 def run(coro):
     return asyncio.run(coro)
+
+
+def run_api(coro):
+    try:
+        return jsonify(run(coro))
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return jsonify({"detail": detail}), int(exc.status_code)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"detail": str(exc)}), 500
 
 
 def check_api_key() -> tuple[bool, tuple]:
@@ -58,7 +69,7 @@ def setup_webhook():
     ok, err = check_api_key()
     if not ok:
         return err
-    return jsonify(run(admin_setup_webhook()))
+    return run_api(admin_setup_webhook())
 
 
 @flask_app.post("/admin/mute")
@@ -67,7 +78,7 @@ def mute():
     if not ok:
         return err
     payload = MuteRequest.model_validate(request.get_json(silent=True) or {})
-    return jsonify(run(admin_mute(payload)))
+    return run_api(admin_mute(payload))
 
 
 @flask_app.post("/admin/unmute")
@@ -76,7 +87,7 @@ def unmute():
     if not ok:
         return err
     payload = UnmuteRequest.model_validate(request.get_json(silent=True) or {})
-    return jsonify(run(admin_unmute(payload)))
+    return run_api(admin_unmute(payload))
 
 
 @flask_app.post("/admin/limit")
@@ -85,7 +96,7 @@ def limit():
     if not ok:
         return err
     payload = LimitRequest.model_validate(request.get_json(silent=True) or {})
-    return jsonify(run(admin_limit(payload)))
+    return run_api(admin_limit(payload))
 
 
 @flask_app.post("/admin/resolve_chat")
@@ -94,7 +105,7 @@ def resolve_chat():
     if not ok:
         return err
     payload = ResolveChatRequest.model_validate(request.get_json(silent=True) or {})
-    return jsonify(run(admin_resolve_chat(payload)))
+    return run_api(admin_resolve_chat(payload))
 
 
 @flask_app.get("/admin/chats/<int:chat_id>/messages")
@@ -102,7 +113,7 @@ def messages(chat_id: int):
     ok, err = check_api_key()
     if not ok:
         return err
-    return jsonify(run(admin_messages(chat_id)))
+    return run_api(admin_messages(chat_id))
 
 
 @flask_app.get("/admin/chats/<int:chat_id>/users")
@@ -110,7 +121,7 @@ def users(chat_id: int):
     ok, err = check_api_key()
     if not ok:
         return err
-    return jsonify(run(admin_users(chat_id)))
+    return run_api(admin_users(chat_id))
 
 
 @flask_app.post("/admin/delete_message")
@@ -119,7 +130,7 @@ def delete_message():
     if not ok:
         return err
     payload = DeleteMessageRequest.model_validate(request.get_json(silent=True) or {})
-    return jsonify(run(admin_delete_message(payload)))
+    return run_api(admin_delete_message(payload))
 
 
 @flask_app.post("/vk/callback")
