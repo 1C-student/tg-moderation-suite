@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local secrets
+bot_server/.env
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# OS/editor
+.DS_Store
+Thumbs.db

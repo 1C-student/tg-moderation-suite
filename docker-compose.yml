@@ -1,0 +1,39 @@
+services:
+  bot_server:
+    build:
+      context: ./bot_server
+      dockerfile: Dockerfile
+    container_name: tg_moderation_bot
+    restart: unless-stopped
+    env_file:
+      - ./bot_server/.env
+    volumes:
+      - ./bot_server/bot_data.sqlite3:/app/bot_data.sqlite3
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tg_moderation_nginx
+    depends_on:
+      - bot_server
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/certbot/www:/var/www/certbot
+      - ./deploy/certbot/conf:/etc/letsencrypt
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: tg_moderation_certbot
+    volumes:
+      - ./deploy/certbot/www:/var/www/certbot
+      - ./deploy/certbot/conf:/etc/letsencrypt
