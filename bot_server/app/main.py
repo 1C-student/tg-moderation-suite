@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict, deque
-from contextlib import asynccontextmanager, suppress
+from contextlib import suppress
 from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher, F
@@ -173,25 +173,8 @@ async def _apply_webhook() -> None:
     await bot.set_webhook(url=webhook_url, secret_token=settings.telegram_webhook_secret or None)
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    init_db()
-    polling_task: asyncio.Task | None = None
-    if settings.bot_mode.lower() == "polling":
-        polling_task = asyncio.create_task(dp.start_polling(bot))
-    else:
-        await _apply_webhook()
-    try:
-        yield
-    finally:
-        if polling_task:
-            polling_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await polling_task
-        await bot.session.close()
-
-
-app = FastAPI(title="Telegram Moderation Bot API", lifespan=lifespan)
+init_db()
+app = FastAPI(title="Telegram Moderation Bot API")
 
 
 @app.get("/health")
@@ -280,4 +263,14 @@ async def vk_callback(payload: dict) -> str:
 
 
 if __name__ == "__main__":
+    if settings.bot_mode.lower() == "polling":
+        async def _run_polling() -> None:
+            try:
+                await dp.start_polling(bot)
+            finally:
+                await bot.session.close()
+
+        asyncio.run(_run_polling())
+        raise SystemExit(0)
+
     uvicorn.run("app.main:app", host=settings.server_host, port=settings.server_port, reload=False)
